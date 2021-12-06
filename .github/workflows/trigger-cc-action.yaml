@@ -1,0 +1,26 @@
+name: trigger-cc-action
+on:
+  push:
+    paths:
+      - /data/wip/*
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - id: files
+      uses: jitterbit/get-changed-files@v1
+      - id: repos
+        name: Detecting repos from the changes
+        run: |
+          REPOS=$(cat /data/wip/* | tr '\n' ',')
+          echo $REPOS
+          echo '::set-output target_repos=TARGET_REPOS::$REPOS'
+      - name: Run Linter
+        uses: philips-labs/continuous-compliance@main
+        env:
+          target_repos: ${{ steps.repos.outputs.TARGET_REPOS }}
+          GITHUB_TOKEN: ${{ secrets.TEMP_TOKEN }}
+        with:
+          target_repos: ${{ steps.repos.outputs.TARGET_REPOS }}
+          gh_token: ${{ secrets.TEMP_TOKEN }}
