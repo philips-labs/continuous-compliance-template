@@ -3,17 +3,23 @@ on:
   push:
     paths:
       - data/wip/*
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - id: repos
         name: Detecting repos from the changes
         run: |
           REPOS=$(cat data/wip/* | sed ':a;N;$!ba;s/\n/,/g')
-          echo $REPOS
-          echo '::set-output target_repos=TARGET_REPOS::$REPOS'
+          echo "::notice:: Linting the following repositories: $REPOS"
+          echo "::set-output name=TARGET_REPOS::$REPOS"
       - name: Run Linter
         uses: philips-labs/continuous-compliance@main
         env:
@@ -24,8 +30,8 @@ jobs:
           gh_token: ${{ secrets.TEMP_TOKEN }}
       - name: Clean temporary directory
         run: |
-          cd data/wip
-          rm !(".gitkeep")
+          rm -rfv data/wip/*
+          touch data/wip/.gitkeep
       - name: Add & Commit
         uses: EndBug/add-and-commit@v7.5.0
         with:
