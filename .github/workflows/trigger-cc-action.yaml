@@ -2,7 +2,7 @@ name: trigger-cc-action
 on:
   push:
     paths:
-      - /data/wip/*
+      - data/wip/*
 
 jobs:
   build:
@@ -11,7 +11,7 @@ jobs:
       - id: repos
         name: Detecting repos from the changes
         run: |
-          REPOS=$(cat /data/wip/* | tr '\n' ',')
+          REPOS=$(cat data/wip/* | sed ':a;N;$!ba;s/\n/,/g')
           echo $REPOS
           echo '::set-output target_repos=TARGET_REPOS::$REPOS'
       - name: Run Linter
@@ -24,7 +24,7 @@ jobs:
           gh_token: ${{ secrets.TEMP_TOKEN }}
       - name: Clean temporary directory
         run: |
-          cd /data/wip
+          cd data/wip
           rm !(".gitkeep")
       - name: Add & Commit
         uses: EndBug/add-and-commit@v7.5.0
