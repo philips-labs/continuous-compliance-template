@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  run-continuous-compliance:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,14 +24,18 @@ jobs:
               echo "::set-output name=TARGET_REPOS::$REPOS"
           fi
 
+      - id: encode
+        name: Encode ruleset as base64
+        run: |
+          BASE=$(base64 -w0 config/fixer.json)
+          echo "::set-output name=BASE_OUTPUT::$BASE"
+
       - name: Run Linter
-        uses: philips-labs/continuous-compliance@main
-        env:
-          target_repos: ${{ steps.repos.outputs.TARGET_REPOS }}
-          GITHUB_TOKEN: ${{ secrets.TEMP_TOKEN }}
+        uses: philips-labs/continuous-compliance-action@develop
         with:
           target_repos: ${{ steps.repos.outputs.TARGET_REPOS }}
           gh_token: ${{ secrets.TEMP_TOKEN }}
+          ruleset: ${{ steps.encode.outputs.BASE_OUTPUT }}
 
       - name: Clean temporary directory
         run: |
