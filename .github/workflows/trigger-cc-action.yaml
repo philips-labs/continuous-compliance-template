@@ -32,9 +32,6 @@ jobs:
 
       - name: Run Linter
         uses: philips-labs/continuous-compliance-action@develop
-        env:
-          target_repos: ${{ steps.repos.outputs.TARGET_REPOS }}
-          GITHUB_TOKEN: ${{ secrets.TEMP_TOKEN }}
         with:
           target_repos: ${{ steps.repos.outputs.TARGET_REPOS }}
           gh_token: ${{ secrets.TEMP_TOKEN }}
