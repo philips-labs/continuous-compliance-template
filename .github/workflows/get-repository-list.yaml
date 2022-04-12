@@ -1,0 +1,42 @@
+name: get-repository-list
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '0 2 * * 1'
+
+jobs:
+  get-repository-list:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      #   This step is used to retrieve a GitHub App token to impersonate a GitHub App
+      #   Might be needed if you are trying to query a organizaton that has private or internal repositories.
+      #
+      # - name: Get Github Token
+      #   id: token
+      #   uses: philips-software/app-token-action@v1.0.2
+      #   with:
+      #     app_id: ${{ secrets.CONTINUOUS_COMPLIANCE_GITHUB_APP_ID }}
+      #     app_base64_private_key: ${{ secrets.CONTINUOUS_COMPLIANCE_GITHUB_APP_PRIVATE_KEY_BASE64 }}
+      #     auth_type: installation
+
+      - name: Get all repos
+        run: |
+          echo ${GITHUB_TOKEN} > token.txt
+          gh auth status
+          gh repo list org-name-here -L 8000 --json nameWithOwner,isArchived --jq '.[] | select(.isArchived == false) | .nameWithOwner' | sort > data/wip/gh-repos.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Git commit & push the updated gh-repos.txt
+        run: |
+          git config --global user.name 'Continuous Compliance'
+          git config --global user.email 'cc@philips-internal.com'
+          git add data/wip/gh-repos.txt
+          git commit -m "Automatically updated repositories list. "
+          git push
+      - name: Cleanup
+        if: ${{ always() }}
+        run: rm token.txt
