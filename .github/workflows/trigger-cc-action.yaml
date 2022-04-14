@@ -8,6 +8,7 @@ on:
 jobs:
   run-continuous-compliance:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -18,31 +19,57 @@ jobs:
           REPOS=$(cat data/wip/* | sed ':a;N;$!ba;s/\n/,/g')
           if [ -z "$REPOS"]; then
               echo "::error::Could not find repositories, aborting job"
-              exit 0
+              exit 1
           else
               echo "::notice:: Linting the following repositories: $REPOS"
               echo "::set-output name=TARGET_REPOS::$REPOS"
           fi
 
+      # This step uses a bash script called dtermine-repo-list.sh
+      # The bash script is reponsible for calculating if the list of repositories is within the timeframe that is given in the third argument.
+      # An optional fourth argument can be provided to specify the max amount of repositories you want to trigger in this job.
+      - name: Determine Repos that meet the time window
+        id: determine_repositories
+        run: |
+          echo ${{ steps.repos.outputs.TARGET_REPOS }} >> data/wip/to-verify-repos.txt
+          bin/determine-repo-list.sh data/wip/to-verify-repos.txt data/checked-repos.txt 604800
+
       - id: encode
         name: Encode ruleset as base64
+        if: ${{ steps.determine_repositories.outputs.IS_EMPTY_REPO_LIST == 'false' }}
         run: |
           BASE=$(base64 -w0 config/fixer.json)
           echo "::set-output name=BASE_OUTPUT::$BASE"
 
       - name: Run Linter
         uses: philips-labs/continuous-compliance-action@develop
+        if: ${{ steps.determine_repositories.outputs.IS_EMPTY_REPO_LIST == 'false' }}
         with:
-          target_repos: ${{ steps.repos.outputs.TARGET_REPOS }}
+          target_repos: ${{ steps.determine_repositories.outputs.REPOSITORIES_LIST }}
           gh_token: ${{ secrets.TEMP_TOKEN }}
           ruleset: ${{ steps.encode.outputs.BASE_OUTPUT }}
 
+      - name: Update the checked repository list
+        if: ${{ steps.determine_repositories.outputs.IS_EMPTY_REPO_LIST == 'false' }}
+        run: |
+          for i in $(echo ${{ steps.determine_repositories.outputs.REPOSITORIES_LIST }} | sed "s/,/ /g")
+          do
+              echo " updating database: $i"
+              repo=${i}
+              current_time=$(date +%s)
+              escaped=${repo/\//\\/}
+              sed "/^$escaped /d" -i data/checked-repos.txt
+              echo ${i} ${current_time} >> data/checked-repos.txt
+          done
+
       - name: Clean temporary directory
+        if: ${{ steps.determine_repositories.outputs.IS_EMPTY_REPO_LIST == 'false' }}
         run: |
           rm -rfv data/wip/*
           touch data/wip/.gitkeep
 
       - name: Add & Commit
+        if: ${{ steps.determine_repositories.outputs.IS_EMPTY_REPO_LIST == 'false' }}
         uses: EndBug/add-and-commit@v7.5.0
         with:
           default_author: github_actions
